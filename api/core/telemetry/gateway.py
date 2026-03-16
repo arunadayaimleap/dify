@@ -18,8 +18,8 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from core.ops.entities.trace_entity import TraceTaskName
-from extensions.ext_storage import storage
 from enterprise.telemetry.contracts import SignalType
+from extensions.ext_storage import storage
 
 if TYPE_CHECKING:
     from core.ops.ops_trace_manager import TraceQueueManager
