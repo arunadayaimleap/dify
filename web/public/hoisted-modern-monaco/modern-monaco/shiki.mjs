@@ -7869,7 +7869,7 @@ async function initShiki({
   });
   return highlighterCore;
 }
-function loadTMTheme(src, cdn = "https://esm.sh") {
+function loadTMTheme(src, cdn = import.meta.url) {
   if (isUrlOrPathname(src)) {
     return cache.fetch(src).then((res) => res.json());
   }
@@ -7882,16 +7882,16 @@ function loadTMTheme(src, cdn = "https://esm.sh") {
       `Invalid theme ID: ${src}, please ensure the theme ID is one of the following: ${Array.from(shikiThemeIds.keys()).join(", ")}`
     );
   }
-  const url = new URL(`/tm-themes@${version2}/themes/${src}.json`, cdn);
+  const url = new URL(`../tm-themes@${version2}/themes/${src}.json`, cdn);
   return cache.fetch(url).then((res) => res.json());
 }
-function loadTMGrammar(src, cdn = "https://esm.sh") {
+function loadTMGrammar(src, cdn = import.meta.url) {
   if (isUrlOrPathname(src)) {
     return cache.fetch(src).then((res) => res.json());
   }
   const g = grammars.find((g2) => g2.name === src);
   if (g) {
-    const url = new URL(`/tm-grammars@${version}/grammars/${g.name}.json`, cdn);
+    const url = new URL(`../tm-grammars@${version}/grammars/${g.name}.json`, cdn);
     return cache.fetch(url).then((res) => res.json());
   }
   throw new Error(`Unsupported grammar source: ${src}`);

@@ -198,6 +198,30 @@ async function patchTypeScriptWorkerBootstrap(setupFilePath: string) {
   await writeFile(setupFilePath, next)
 }
 
+async function patchShikiAssetLoaders(shikiFilePath: string) {
+  const original = await readFile(shikiFilePath, 'utf8')
+  const version2Expr = `$${'{version2}'}`
+  const versionExpr = `$${'{version}'}`
+  const srcExpr = `$${'{src}'}`
+  const grammarNameExpr = `$${'{g.name}'}`
+  const next = original
+    .replace(/function loadTMTheme\(src, cdn = "https:\/\/esm\.sh"\) \{/, 'function loadTMTheme(src, cdn = import.meta.url) {')
+    .replace(
+      /const url = new URL\(`\/tm-themes@\$\{version2\}\/themes\/\$\{src\}\.json`, cdn\);/,
+      `const url = new URL(\`../tm-themes@${version2Expr}/themes/${srcExpr}.json\`, cdn);`,
+    )
+    .replace(/function loadTMGrammar\(src, cdn = "https:\/\/esm\.sh"\) \{/, 'function loadTMGrammar(src, cdn = import.meta.url) {')
+    .replace(
+      /const url = new URL\(`\/tm-grammars@\$\{version\}\/grammars\/\$\{g\.name\}\.json`, cdn\);/,
+      `const url = new URL(\`../tm-grammars@${versionExpr}/grammars/${grammarNameExpr}.json\`, cdn);`,
+    )
+
+  if (next === original)
+    throw new Error('Failed to patch modern-monaco shiki asset loaders')
+
+  await writeFile(shikiFilePath, next)
+}
+
 async function writeManifest(filePath: string, manifest: object) {
   await writeFile(filePath, `${JSON.stringify(manifest, null, 2)}\n`)
 }
@@ -276,6 +300,7 @@ async function main() {
   log(`Copying modern-monaco dist -> ${path.relative(ROOT_DIR, MODERN_MONACO_PUBLIC_DIR)}`)
   await rm(MODERN_MONACO_PUBLIC_DIR, { force: true, recursive: true })
   await cp(MODERN_MONACO_DIST_DIR, MODERN_MONACO_PUBLIC_DIR, { recursive: true })
+  await patchShikiAssetLoaders(path.join(MODERN_MONACO_PUBLIC_DIR, 'shiki.mjs'))
 
   log(`Downloading typescript ESM -> ${localTypeScriptPath}`)
   await writeResponseToFile(`${ESM_SH}${localTypeScriptPath}`, typeScriptPublicPath)
