@@ -1,6 +1,9 @@
-import type { ModelItem, ModelProvider } from '../../declarations'
+import type { ReactNode } from 'react'
+import type { ModelProvider } from '../../declarations'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { fetchModelProviderModelList } from '@/service/common'
+import { createStore, Provider as JotaiProvider } from 'jotai'
+import { useExpandModelProviderList } from '../../atoms'
 import { ConfigurationMethodEnum } from '../../declarations'
 import ProviderAddedCard from '../index'
 

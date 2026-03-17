@@ -5,6 +5,7 @@ import {
   ModelFeatureEnum,
   ModelStatusEnum,
   ModelTypeEnum,
+  PreferredProviderTypeEnum,
 } from '../../declarations'
 import PopupItem from '../popup-item'
 
@@ -32,6 +33,36 @@ vi.mock('../../model-icon', () => ({
 
 vi.mock('../../model-name', () => ({
   default: ({ modelItem }: { modelItem: ModelItem }) => <span>{modelItem.label.en_US}</span>,
+}))
+
+vi.mock('../feature-icon', () => ({
+  default: ({ feature }: { feature: string }) => <span data-testid="feature-icon">{feature}</span>,
+}))
+
+vi.mock('@/app/components/base/tooltip', () => ({
+  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+
+vi.mock('@/app/components/base/ui/popover', () => ({
+  Popover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PopoverTrigger: ({ render }: { render: React.ReactNode }) => <>{render}</>,
+  PopoverContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+
+const mockCredentialPanelState = vi.hoisted(() => vi.fn())
+vi.mock('../../provider-added-card/use-credential-panel-state', () => ({
+  useCredentialPanelState: mockCredentialPanelState,
+}))
+
+vi.mock('../../provider-added-card/use-change-provider-priority', () => ({
+  useChangeProviderPriority: () => ({
+    isChangingPriority: false,
+    handleChangePriority: vi.fn(),
+  }),
+}))
+
+vi.mock('../../provider-added-card/model-auth-dropdown/dropdown-content', () => ({
+  default: ({ onClose }: { onClose: () => void }) => <button type="button" onClick={onClose}>close dropdown</button>,
 }))
 
 const mockSetShowModelModal = vi.hoisted(() => vi.fn())

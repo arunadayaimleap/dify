@@ -1,6 +1,5 @@
 import type { ModelProvider } from '../../declarations'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import QuotaPanel from '../quota-panel'
 
 let mockWorkspace = {

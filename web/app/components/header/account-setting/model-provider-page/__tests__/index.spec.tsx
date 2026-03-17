@@ -74,7 +74,7 @@ const mockDefaultModelState: {
 }
 
 vi.mock('../hooks', () => ({
-  useDefaultModel: () => mockDefaultModelState,
+  useDefaultModel: (type: string) => mockDefaultModels[type] ?? { data: null, isLoading: false },
 }))
 
 vi.mock('../install-from-marketplace', () => ({

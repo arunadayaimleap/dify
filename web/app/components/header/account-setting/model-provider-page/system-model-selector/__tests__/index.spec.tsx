@@ -1,7 +1,6 @@
 import type { DefaultModelResponse } from '../../declarations'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
-import { ToastContext } from '@/app/components/base/toast/context'
 import { ModelTypeEnum } from '../../declarations'
 import SystemModel from '../index'
 

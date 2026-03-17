@@ -36,7 +36,6 @@ import {
   useUpdateModelList,
   useUpdateModelProviders,
 } from '../hooks'
-import { UPDATE_MODEL_PROVIDER_CUSTOM_MODEL_LIST } from '../provider-added-card'
 
 // Mock dependencies
 vi.mock('@tanstack/react-query', () => ({
@@ -99,12 +98,17 @@ vi.mock('@/app/components/plugins/marketplace/hooks', () => ({
   })),
 }))
 
+vi.mock('../atoms', () => ({
+  useExpandModelProviderList: vi.fn(() => vi.fn()),
+}))
+
 const { useQuery, useQueryClient } = await import('@tanstack/react-query')
 const { getPayUrl } = await import('@/service/common')
 const { useProviderContext } = await import('@/context/provider-context')
 const { useModalContextSelector } = await import('@/context/modal-context')
 const { useEventEmitterContextContext } = await import('@/context/event-emitter')
 const { useMarketplacePlugins, useMarketplacePluginsByCollectionId } = await import('@/app/components/plugins/marketplace/hooks')
+const { useExpandModelProviderList } = await import('../atoms')
 
 describe('hooks', () => {
   beforeEach(() => {

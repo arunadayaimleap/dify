@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ModelParameterModal from '../index'
 
 let isAPIKeySet = true
@@ -77,7 +77,7 @@ vi.mock('../parameter-item', () => ({
 }))
 
 vi.mock('../../model-selector', () => ({
-  default: ({ onSelect }: { onSelect: (value: { provider: string, model: string }) => void }) => (
+  default: ({ onHide, onSelect }: { onHide: () => void, onSelect: (value: { provider: string, model: string }) => void }) => (
     <div data-testid="model-selector">
       <button onClick={() => onSelect({ provider: 'openai', model: 'gpt-4.1' })}>Select GPT-4.1</button>
     </div>
@@ -91,7 +91,7 @@ vi.mock('../presets-parameter', () => ({
 }))
 
 vi.mock('../trigger', () => ({
-  default: () => <button>Open Settings</button>,
+  default: () => <button type="button">Open Settings</button>,
 }))
 
 vi.mock('@/config', async (importOriginal) => {

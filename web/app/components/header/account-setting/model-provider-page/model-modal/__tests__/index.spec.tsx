@@ -1,7 +1,6 @@
-import type { ComponentProps } from 'react'
-import type { Credential, CredentialFormSchema, CustomModel, ModelProvider } from '../../declarations'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import * as React from 'react'
+import type * as React from 'react'
+import type { Credential, CredentialFormSchema, ModelProvider } from '../../declarations'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import {
   ConfigurationMethodEnum,
   CurrentSystemQuotaTypeEnum,
@@ -45,6 +44,15 @@ const mockHandlers = vi.hoisted(() => ({
   handleActiveCredential: vi.fn(),
 }))
 
+type FormResponse = {
+  isCheckValidated: boolean
+  values: Record<string, unknown>
+}
+const mockFormState = vi.hoisted(() => ({
+  responses: [] as FormResponse[],
+  setFieldValue: vi.fn(),
+}))
+
 vi.mock('../../model-auth/hooks', () => ({
   useCredentialData: () => ({
     isLoading: mockState.isLoading,
@@ -77,6 +85,36 @@ vi.mock('@/hooks/use-i18n', () => ({
 
 vi.mock('../../hooks', () => ({
   useLanguage: () => 'en_US',
+}))
+
+vi.mock('@/app/components/base/form/form-scenarios/auth', async () => {
+  const React = await import('react')
+  const AuthForm = React.forwardRef(({
+    onChange,
+  }: {
+    onChange?: (field: string, value: string) => void
+  }, ref: React.ForwardedRef<{ getFormValues: () => FormResponse, getForm: () => { setFieldValue: (field: string, value: string) => void } }>) => {
+    React.useImperativeHandle(ref, () => ({
+      getFormValues: () => mockFormState.responses.shift() || { isCheckValidated: false, values: {} },
+      getForm: () => ({ setFieldValue: mockFormState.setFieldValue }),
+    }))
+    return (
+      <div>
+        <button type="button" onClick={() => onChange?.('__model_name', 'updated-model')}>Model Name Change</button>
+      </div>
+    )
+  })
+
+  return { default: AuthForm }
+})
+
+vi.mock('../../model-auth', () => ({
+  CredentialSelector: ({ onSelect }: { onSelect: (credential: Credential & { addNewCredential?: boolean }) => void }) => (
+    <div>
+      <button type="button" onClick={() => onSelect({ credential_id: 'existing' })}>Choose Existing</button>
+      <button type="button" onClick={() => onSelect({ credential_id: 'new', addNewCredential: true })}>Add New</button>
+    </div>
+  ),
 }))
 
 const createI18n = (text: string) => ({ en_US: text, zh_Hans: text })
@@ -134,46 +172,6 @@ const renderModal = (overrides?: Partial<ComponentProps<typeof ModelModal>>) => 
   render(<ModelModal {...props} />)
   return props
 }
-
-const mockFormRef1 = {
-  getFormValues: vi.fn(),
-  getForm: vi.fn(() => ({ setFieldValue: vi.fn() })),
-}
-
-const mockFormRef2 = {
-  getFormValues: vi.fn(),
-  getForm: vi.fn(() => ({ setFieldValue: vi.fn() })),
-}
-
-vi.mock('@/app/components/base/form/form-scenarios/auth', () => ({
-  default: React.forwardRef((props: { formSchemas: Record<string, unknown>[], onChange?: (f: string, v: string) => void }, ref: React.ForwardedRef<unknown>) => {
-    React.useImperativeHandle(ref, () => {
-      // Return the mock depending on schemas passed (hacky but works for refs)
-      if (props.formSchemas.length > 0 && props.formSchemas[0].name === '__model_name')
-        return mockFormRef1
-      return mockFormRef2
-    })
-    return (
-      <div data-testid="auth-form" onClick={() => props.onChange?.('test-field', 'val')}>
-        AuthForm Mock (
-        {props.formSchemas.length}
-        {' '}
-        fields)
-      </div>
-    )
-  }),
-}))
-
-vi.mock('../../model-auth', () => ({
-  CredentialSelector: ({ onSelect }: { onSelect: (val: unknown) => void }) => (
-    <button onClick={() => onSelect({ addNewCredential: true })} data-testid="credential-selector">
-      Select Credential
-    </button>
-  ),
-  useAuth: vi.fn(),
-  useCredentialData: vi.fn(),
-  useModelFormSchemas: vi.fn(),
-}))
 
 describe('ModelModal', () => {
   beforeEach(() => {

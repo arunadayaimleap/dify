@@ -1,8 +1,12 @@
 import type { ModelProvider } from '../../declarations'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ToastContext } from '@/app/components/base/toast/context'
-import { changeModelProviderPriority } from '@/service/common'
-import { ConfigurationMethodEnum } from '../../declarations'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  ConfigurationMethodEnum,
+  CurrentSystemQuotaTypeEnum,
+  CustomConfigurationStatusEnum,
+  PreferredProviderTypeEnum,
+} from '../../declarations'
 import CredentialPanel from '../credential-panel'
 
 const mockEventEmitter = { emit: vi.fn() }
@@ -58,18 +62,22 @@ vi.mock('../../hooks', () => ({
   useUpdateModelProviders: () => mockUpdateModelProviders,
 }))
 
-vi.mock('../priority-selector', () => ({
-  default: ({ value, onSelect }: { value: string, onSelect: (key: string) => void }) => (
-    <button data-testid="priority-selector" onClick={() => onSelect('custom')}>
-      Priority Selector
-      {' '}
-      {value}
-    </button>
+vi.mock('../use-trial-credits', () => ({
+  useTrialCredits: () => mockTrialCredits,
+}))
+
+vi.mock('../model-auth-dropdown', () => ({
+  default: ({ state, onChangePriority }: { state: { variant: string, hasCredentials: boolean }, onChangePriority: (key: string) => void }) => (
+    <div data-testid="model-auth-dropdown" data-variant={state.variant}>
+      <button data-testid="change-priority-btn" onClick={() => onChangePriority('custom')}>
+        Change Priority
+      </button>
+    </div>
   ),
 }))
 
-vi.mock('../priority-use-tip', () => ({
-  default: () => <div data-testid="priority-use-tip">Priority Tip</div>,
+vi.mock('@/app/components/header/indicator', () => ({
+  default: ({ color }: { color: string }) => <div data-testid="indicator" data-color={color} />,
 }))
 
 vi.mock('@/app/components/header/indicator', () => ({

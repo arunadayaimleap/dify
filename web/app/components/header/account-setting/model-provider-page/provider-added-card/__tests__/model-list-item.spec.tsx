@@ -1,4 +1,5 @@
 import type { ModelItem, ModelProvider } from '../../declarations'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { disableModel, enableModel } from '@/service/common'
 import { ModelStatusEnum } from '../../declarations'

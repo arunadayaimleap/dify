@@ -1,7 +1,8 @@
 import type { ComponentProps } from 'react'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import Trigger from '../trigger'
+
+const mockUseCredentialPanelState = vi.fn()
 
 vi.mock('../../hooks', () => ({
   useLanguage: () => 'en_US',
@@ -13,12 +14,30 @@ vi.mock('@/context/provider-context', () => ({
   }),
 }))
 
+vi.mock('../../provider-added-card/use-credential-panel-state', () => ({
+  useCredentialPanelState: () => mockUseCredentialPanelState(),
+}))
+
 vi.mock('../../model-icon', () => ({
   default: () => <div data-testid="model-icon">Icon</div>,
 }))
 
 vi.mock('../../model-name', () => ({
-  default: ({ modelItem }: { modelItem: { model: string } }) => <div>{modelItem.model}</div>,
+  default: ({
+    modelItem,
+    showMode,
+    showFeatures,
+  }: {
+    modelItem: { model: string }
+    showMode?: boolean
+    showFeatures?: boolean
+  }) => (
+    <div>
+      <span>{modelItem.model}</span>
+      {showMode && <span data-testid="model-name-mode">mode</span>}
+      {showFeatures && <span data-testid="model-name-features">features</span>}
+    </div>
+  ),
 }))
 
 describe('Trigger', () => {
@@ -40,14 +59,156 @@ describe('Trigger', () => {
     expect(screen.getByTestId('model-icon')).toBeInTheDocument()
   })
 
-  it('should render fallback model id when current model is missing', () => {
-    render(
-      <Trigger
-        modelId="gpt-4"
-        providerName="openai"
-      />,
-    )
-    expect(screen.getByText('gpt-4')).toBeInTheDocument()
+  describe('Status badges', () => {
+    it('should render credits exhausted badge in non-workflow mode', () => {
+      mockUseCredentialPanelState.mockReturnValue({
+        ...activeCredentialState,
+        variant: 'credits-exhausted',
+        isCreditsExhausted: true,
+        priority: 'credits',
+      })
+
+      render(
+        <Trigger
+          currentProvider={currentProvider}
+          currentModel={currentModel}
+          providerName="openai"
+          modelId="gpt-4"
+        />,
+      )
+
+      expect(screen.getByText('common.modelProvider.selector.creditsExhausted')).toBeInTheDocument()
+      expect(screen.queryByTestId('model-name-mode')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('model-name-features')).not.toBeInTheDocument()
+    })
+
+    it('should render api unavailable badge in non-workflow mode', () => {
+      mockUseCredentialPanelState.mockReturnValue({
+        ...activeCredentialState,
+        variant: 'api-unavailable',
+      })
+
+      render(
+        <Trigger
+          currentProvider={currentProvider}
+          currentModel={currentModel}
+          providerName="openai"
+          modelId="gpt-4"
+        />,
+      )
+
+      expect(screen.getByText('common.modelProvider.selector.apiKeyUnavailable')).toBeInTheDocument()
+    })
+
+    it('should render credits exhausted badge in workflow mode', () => {
+      mockUseCredentialPanelState.mockReturnValue({
+        ...activeCredentialState,
+        variant: 'credits-exhausted',
+        isCreditsExhausted: true,
+        priority: 'credits',
+      })
+
+      render(
+        <Trigger
+          currentProvider={currentProvider}
+          currentModel={currentModel}
+          providerName="openai"
+          modelId="gpt-4"
+          isInWorkflow
+        />,
+      )
+
+      expect(screen.getByText('common.modelProvider.selector.creditsExhausted')).toBeInTheDocument()
+    })
+
+    it('should render api unavailable badge in workflow mode', () => {
+      mockUseCredentialPanelState.mockReturnValue({
+        ...activeCredentialState,
+        variant: 'api-unavailable',
+      })
+
+      render(
+        <Trigger
+          currentProvider={currentProvider}
+          currentModel={currentModel}
+          providerName="openai"
+          modelId="gpt-4"
+          isInWorkflow
+        />,
+      )
+
+      expect(screen.getByText('common.modelProvider.selector.apiKeyUnavailable')).toBeInTheDocument()
+    })
+
+    it('should render incompatible badge when model is deprecated (currentModel missing)', () => {
+      render(
+        <Trigger
+          currentProvider={currentProvider}
+          providerName="openai"
+          modelId="gpt-4"
+        />,
+      )
+
+      expect(screen.getByText('common.modelProvider.selector.incompatible')).toBeInTheDocument()
+    })
+
+    it('should render credits exhausted badge when model is missing and AI credits are exhausted without api key', () => {
+      mockUseCredentialPanelState.mockReturnValue({
+        ...activeCredentialState,
+        variant: 'no-usage',
+        priority: 'apiKey',
+        hasCredentials: false,
+        isCreditsExhausted: true,
+        credentialName: undefined,
+      })
+
+      render(
+        <Trigger
+          currentProvider={currentProvider}
+          providerName="openai"
+          modelId="gpt-4"
+        />,
+      )
+
+      expect(screen.getByText('common.modelProvider.selector.creditsExhausted')).toBeInTheDocument()
+    })
+
+    it('should render configure required badge when model status is no-configure', () => {
+      render(
+        <Trigger
+          currentProvider={currentProvider}
+          currentModel={{ ...currentModel, status: 'no-configure' } as typeof currentModel}
+          providerName="openai"
+          modelId="gpt-4"
+        />,
+      )
+
+      expect(screen.getByText('common.modelProvider.selector.configureRequired')).toBeInTheDocument()
+    })
+
+    it('should render disabled badge when model status is disabled', () => {
+      render(
+        <Trigger
+          currentProvider={currentProvider}
+          currentModel={{ ...currentModel, status: 'disabled' } as typeof currentModel}
+          providerName="openai"
+          modelId="gpt-4"
+        />,
+      )
+
+      expect(screen.getByText('common.modelProvider.selector.disabled')).toBeInTheDocument()
+    })
+
+    it('should render incompatible badge when provider plugin is not installed', () => {
+      render(
+        <Trigger
+          modelId="gpt-4"
+          providerName="unknown-provider"
+        />,
+      )
+
+      expect(screen.getByText('common.modelProvider.selector.incompatible')).toBeInTheDocument()
+    })
   })
 
   // isInWorkflow=true: workflow border class + RiArrowDownSLine arrow

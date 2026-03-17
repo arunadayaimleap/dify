@@ -1,4 +1,6 @@
-import type { Model, ModelItem } from '../../declarations'
+import type { ReactNode } from 'react'
+import type { DefaultModel, Model, ModelItem } from '../../declarations'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen } from '@testing-library/react'
 import {
   ConfigurationMethodEnum,
@@ -7,16 +9,20 @@ import {
 } from '../../declarations'
 import ModelSelector from '../index'
 
-vi.mock('../model-trigger', () => ({
-  default: () => <div>model-trigger</div>,
-}))
+vi.mock('../model-selector-trigger', () => ({
+  default: ({
+    currentProvider,
+    currentModel,
+    defaultModel,
+  }: { currentProvider?: Model, currentModel?: ModelItem, defaultModel?: DefaultModel }) => {
+    if (currentProvider && currentModel)
+      return <div>model-trigger</div>
 
-vi.mock('../deprecated-model-trigger', () => ({
-  default: ({ modelName }: { modelName: string }) => <div>{`deprecated:${modelName}`}</div>,
-}))
+    if (defaultModel)
+      return <div>{`deprecated:${defaultModel.model}`}</div>
 
-vi.mock('../empty-trigger', () => ({
-  default: () => <div>empty-trigger</div>,
+    return <div>empty-trigger</div>
+  },
 }))
 
 vi.mock('../popup', () => ({

@@ -1,6 +1,5 @@
-import type { Model, ModelItem } from '../../declarations'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { tooltipManager } from '@/app/components/base/tooltip/TooltipManager'
+import type { Model, ModelItem, ModelProvider } from '../../declarations'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
   ConfigurationMethodEnum,
   ModelFeatureEnum,
@@ -23,6 +22,23 @@ vi.mock('@/utils/tool-call', () => ({
   supportFunctionCall: mockSupportFunctionCall,
 }))
 
+type MockMarketplacePlugin = {
+  plugin_id: string
+  latest_package_identifier: string
+}
+
+type MockContextProvider = Pick<ModelProvider, 'provider' | 'label' | 'icon_small' | 'icon_small_dark' | 'custom_configuration' | 'system_configuration'>
+
+const mockMarketplacePlugins = vi.hoisted(() => ({
+  current: [] as MockMarketplacePlugin[],
+  isLoading: false,
+}))
+const mockContextModelProviders = vi.hoisted(() => ({
+  current: [] as MockContextProvider[],
+}))
+const mockTrialModels = vi.hoisted(() => ({
+  current: ['test-openai', 'test-anthropic'] as string[],
+}))
 vi.mock('../../hooks', async () => {
   const actual = await vi.importActual<typeof import('../../hooks')>('../../hooks')
   return {
@@ -34,6 +50,81 @@ vi.mock('../../hooks', async () => {
 vi.mock('../popup-item', () => ({
   default: ({ model }: { model: Model }) => <div>{model.provider}</div>,
 }))
+
+vi.mock('@/context/provider-context', () => ({
+  useProviderContext: () => ({ modelProviders: mockContextModelProviders.current }),
+}))
+
+vi.mock('@/context/global-public-context', () => ({
+  useSystemFeaturesQuery: () => ({
+    data: { trial_models: mockTrialModels.current },
+  }),
+}))
+
+const mockTrialCredits = vi.hoisted(() => ({
+  credits: 200,
+  totalCredits: 200,
+  isExhausted: false,
+  isLoading: false,
+  nextCreditResetDate: undefined as number | undefined,
+}))
+vi.mock('../../provider-added-card/use-trial-credits', () => ({
+  useTrialCredits: () => mockTrialCredits,
+}))
+
+vi.mock('../../provider-added-card/model-auth-dropdown/credits-exhausted-alert', () => ({
+  default: ({ hasApiKeyFallback }: { hasApiKeyFallback: boolean }) => (
+    <div data-testid="credits-exhausted-alert" data-has-api-key-fallback={String(hasApiKeyFallback)} />
+  ),
+}))
+
+vi.mock('next-themes', () => ({
+  useTheme: () => ({ theme: 'light' }),
+}))
+
+vi.mock('@/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/config')>()
+  return { ...actual, IS_CLOUD_EDITION: true }
+})
+
+const mockInstallMutateAsync = vi.hoisted(() => vi.fn())
+vi.mock('@/service/use-plugins', () => ({
+  useInstallPackageFromMarketPlace: () => ({ mutateAsync: mockInstallMutateAsync }),
+}))
+
+const mockRefreshPluginList = vi.hoisted(() => vi.fn())
+vi.mock('@/app/components/plugins/install-plugin/hooks/use-refresh-plugin-list', () => ({
+  default: () => ({ refreshPluginList: mockRefreshPluginList }),
+}))
+
+const mockCheck = vi.hoisted(() => vi.fn())
+vi.mock('@/app/components/plugins/install-plugin/base/check-task-status', () => ({
+  default: () => ({ check: mockCheck }),
+}))
+
+vi.mock('@/utils/var', () => ({
+  getMarketplaceUrl: vi.fn(() => 'https://marketplace.example.com'),
+}))
+
+vi.mock('../../utils', async () => {
+  const actual = await vi.importActual<typeof import('../../utils')>('../../utils')
+  return {
+    ...actual,
+    MODEL_PROVIDER_QUOTA_GET_PAID: ['test-openai', 'test-anthropic'],
+    providerIconMap: {
+      'test-openai': ({ className }: { className?: string }) => <span className={className}>OAI</span>,
+      'test-anthropic': ({ className }: { className?: string }) => <span className={className}>ANT</span>,
+    },
+    modelNameMap: {
+      'test-openai': 'TestOpenAI',
+      'test-anthropic': 'TestAnthropic',
+    },
+    providerKeyToPluginId: {
+      'test-openai': 'langgenius/openai',
+      'test-anthropic': 'langgenius/anthropic',
+    },
+  }
+})
 
 const makeModelItem = (overrides: Partial<ModelItem> = {}): ModelItem => ({
   model: 'gpt-4',
@@ -52,6 +143,20 @@ const makeModel = (overrides: Partial<Model> = {}): Model => ({
   label: { en_US: 'OpenAI', zh_Hans: 'OpenAI' },
   models: [makeModelItem()],
   status: ModelStatusEnum.active,
+  ...overrides,
+})
+
+const makeContextProvider = (overrides: Partial<MockContextProvider> = {}): MockContextProvider => ({
+  provider: 'test-openai',
+  label: { en_US: 'Test OpenAI', zh_Hans: 'Test OpenAI' },
+  icon_small: { en_US: '', zh_Hans: '' },
+  icon_small_dark: { en_US: '', zh_Hans: '' },
+  custom_configuration: {
+    status: 'no-configure',
+  } as MockContextProvider['custom_configuration'],
+  system_configuration: {
+    enabled: false,
+  } as MockContextProvider['system_configuration'],
   ...overrides,
 })
 
@@ -233,6 +338,200 @@ describe('Popup', () => {
     const input = screen.getByPlaceholderText('datasetSettings.form.searchModel')
     fireEvent.change(input, { target: { value: 'gpt' } })
 
-    expect(screen.getByText('openai')).toBeInTheDocument()
+  it('should show installed marketplace providers without models when AI credits are available', () => {
+    mockContextModelProviders.current = [makeContextProvider({
+      provider: 'test-anthropic',
+      system_configuration: {
+        enabled: true,
+      } as MockContextProvider['system_configuration'],
+    })]
+
+    render(
+      <Popup
+        modelList={[]}
+        onSelect={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('test-anthropic')).toBeInTheDocument()
+    expect(screen.getByText('TestOpenAI')).toBeInTheDocument()
+  })
+
+  it('should hide installed marketplace providers without models when AI credits are exhausted', () => {
+    Object.assign(mockTrialCredits, {
+      credits: 0,
+      totalCredits: 200,
+      isExhausted: true,
+    })
+    mockContextModelProviders.current = [makeContextProvider({
+      provider: 'test-anthropic',
+      system_configuration: {
+        enabled: true,
+      } as MockContextProvider['system_configuration'],
+    })]
+
+    render(
+      <Popup
+        modelList={[]}
+        onSelect={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText('test-anthropic')).not.toBeInTheDocument()
+    expect(screen.queryByText('TestAnthropic')).not.toBeInTheDocument()
+    expect(screen.getByText('TestOpenAI')).toBeInTheDocument()
+  })
+
+  it('should toggle marketplace section collapse', () => {
+    render(
+      <Popup
+        modelList={[]}
+        onSelect={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('TestOpenAI')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText(/modelProvider\.selector\.fromMarketplace/))
+
+    expect(screen.queryByText('TestOpenAI')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText(/modelProvider\.selector\.fromMarketplace/))
+
+    expect(screen.getByText('TestOpenAI')).toBeInTheDocument()
+  })
+
+  it('should install plugin when clicking install button', async () => {
+    mockMarketplacePlugins.current = [
+      { plugin_id: 'langgenius/openai', latest_package_identifier: 'langgenius/openai:1.0.0' },
+    ]
+    mockInstallMutateAsync.mockResolvedValue({ all_installed: true, task_id: 'task-1' })
+
+    render(
+      <Popup
+        modelList={[]}
+        onSelect={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    )
+
+    const installButtons = screen.getAllByText(/common\.modelProvider\.selector\.install/)
+    fireEvent.click(installButtons[0])
+
+    await waitFor(() => {
+      expect(mockInstallMutateAsync).toHaveBeenCalledWith('langgenius/openai:1.0.0')
+    })
+    expect(mockRefreshPluginList).toHaveBeenCalled()
+  })
+
+  it('should handle install failure gracefully', async () => {
+    mockMarketplacePlugins.current = [
+      { plugin_id: 'langgenius/openai', latest_package_identifier: 'langgenius/openai:1.0.0' },
+    ]
+    mockInstallMutateAsync.mockRejectedValue(new Error('Install failed'))
+
+    render(
+      <Popup
+        modelList={[]}
+        onSelect={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    )
+
+    const installButtons = screen.getAllByText(/common\.modelProvider\.selector\.install/)
+    fireEvent.click(installButtons[0])
+
+    await waitFor(() => {
+      expect(mockInstallMutateAsync).toHaveBeenCalled()
+    })
+
+    // Should not crash, install buttons should still be available
+    expect(screen.getAllByText(/common\.modelProvider\.selector\.install/).length).toBeGreaterThan(0)
+  })
+
+  it('should run checkTaskStatus when not all_installed', async () => {
+    mockMarketplacePlugins.current = [
+      { plugin_id: 'langgenius/openai', latest_package_identifier: 'langgenius/openai:1.0.0' },
+    ]
+    mockInstallMutateAsync.mockResolvedValue({ all_installed: false, task_id: 'task-1' })
+    mockCheck.mockResolvedValue(undefined)
+
+    render(
+      <Popup
+        modelList={[]}
+        onSelect={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    )
+
+    const installButtons = screen.getAllByText(/common\.modelProvider\.selector\.install/)
+    fireEvent.click(installButtons[0])
+
+    await waitFor(() => {
+      expect(mockCheck).toHaveBeenCalledWith({
+        taskId: 'task-1',
+        pluginUniqueIdentifier: 'langgenius/openai:1.0.0',
+      })
+    })
+    expect(mockRefreshPluginList).toHaveBeenCalled()
+  })
+
+  it('should skip install requests when marketplace plugins are still loading', async () => {
+    mockMarketplacePlugins.current = [
+      { plugin_id: 'langgenius/openai', latest_package_identifier: 'langgenius/openai:1.0.0' },
+    ]
+    mockMarketplacePlugins.isLoading = true
+
+    render(
+      <Popup
+        modelList={[]}
+        onSelect={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getAllByText(/common\.modelProvider\.selector\.install/)[0])
+
+    await waitFor(() => {
+      expect(mockInstallMutateAsync).not.toHaveBeenCalled()
+    })
+  })
+
+  it('should skip install requests when the marketplace plugin cannot be found', async () => {
+    mockMarketplacePlugins.current = []
+
+    render(
+      <Popup
+        modelList={[]}
+        onSelect={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getAllByText(/common\.modelProvider\.selector\.install/)[0])
+
+    await waitFor(() => {
+      expect(mockInstallMutateAsync).not.toHaveBeenCalled()
+    })
+  })
+
+  it('should sort the selected provider to the top when a default model is provided', () => {
+    render(
+      <Popup
+        defaultModel={{ provider: 'anthropic', model: 'claude-3' }}
+        modelList={[
+          makeModel({ provider: 'openai', label: { en_US: 'OpenAI', zh_Hans: 'OpenAI' } }),
+          makeModel({ provider: 'anthropic', label: { en_US: 'Anthropic', zh_Hans: 'Anthropic' } }),
+        ]}
+        onSelect={vi.fn()}
+        onHide={vi.fn()}
+      />,
+    )
+
+    const providerLabels = screen.getAllByText(/openai|anthropic/)
+    expect(providerLabels[0]).toHaveTextContent('anthropic')
   })
 })
