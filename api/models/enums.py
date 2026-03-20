@@ -11,6 +11,13 @@ class CreatorUserRole(StrEnum):
     ACCOUNT = "account"
     END_USER = "end_user"
 
+    @classmethod
+    def _missing_(cls, value):
+        if value == "end-user":
+            return cls.END_USER
+        else:
+            return super()._missing_(value)
+
 
 class WorkflowRunTriggeredFrom(StrEnum):
     DEBUGGING = "debugging"
@@ -149,6 +156,13 @@ class FeedbackFromSource(StrEnum):
 
     USER = "user"
     ADMIN = "admin"
+
+
+class FeedbackRating(StrEnum):
+    """MessageFeedback rating"""
+
+    LIKE = "like"
+    DISLIKE = "dislike"
 
 
 class InvokeFrom(StrEnum):
