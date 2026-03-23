@@ -82,6 +82,10 @@ After running, you can access the Dify dashboard in your browser at [http://loca
 
 Please refer to our [FAQ](https://docs.dify.ai/getting-started/install-self-hosted/faqs) if you encounter problems setting up Dify. Reach out to [the community and us](#community--contact) if you are still having issues.
 
+#### Deploy on Railway
+
+For a multi-service deployment on [Railway](https://railway.com), including **same-origin console API proxying** (needed for auth on `*.up.railway.app`), see **[docs/en-US/railway-deployment.md](docs/en-US/railway-deployment.md)**. It also explains how to turn a working project into a **Railway template** for repeatable one-click deploys.
+
 > If you'd like to contribute to Dify or do additional development, refer to our [guide to deploying from source code](https://docs.dify.ai/getting-started/install-self-hosted/local-source-code)
 
 ## Key features

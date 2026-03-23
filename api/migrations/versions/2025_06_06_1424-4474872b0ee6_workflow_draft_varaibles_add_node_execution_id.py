@@ -33,12 +33,11 @@ def upgrade():
         # - https://www.postgresql.org/docs/current/sql-createindex.html#:~:text=Another%20difference%20is,CREATE%20INDEX%20CONCURRENTLY%20cannot.
         # - https://alembic.sqlalchemy.org/en/latest/api/runtime.html#alembic.runtime.migration.MigrationContext.autocommit_block
         with op.get_context().autocommit_block():
-            op.create_index(
-                op.f('workflow_node_executions_tenant_id_idx'),
-                "workflow_node_executions",
-                ['tenant_id', 'workflow_id', 'node_id', sa.literal_column('created_at DESC')],
-                unique=False,
-                postgresql_concurrently=True,
+            op.execute(
+                sa.text(
+                    "CREATE INDEX CONCURRENTLY IF NOT EXISTS workflow_node_executions_tenant_id_idx "
+                    "ON workflow_node_executions (tenant_id, workflow_id, node_id, created_at DESC)"
+                )
             )
     else:
         op.create_index(
@@ -48,8 +47,16 @@ def upgrade():
             unique=False,
         )
 
-    with op.batch_alter_table('workflow_draft_variables', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('node_execution_id', models.types.StringUUID(), nullable=True))
+    if _is_pg(conn):
+        op.execute(
+            sa.text(
+                "ALTER TABLE workflow_draft_variables "
+                "ADD COLUMN IF NOT EXISTS node_execution_id UUID"
+            )
+        )
+    else:
+        with op.batch_alter_table('workflow_draft_variables', schema=None) as batch_op:
+            batch_op.add_column(sa.Column('node_execution_id', models.types.StringUUID(), nullable=True))
     # ### end Alembic commands ###
 
 

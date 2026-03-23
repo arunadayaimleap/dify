@@ -13,6 +13,7 @@ const wrapResponseWithXFrameOptions = (response: NextResponse, pathname: string)
 
   return response
 }
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const requestHeaders = new Headers(request.headers)

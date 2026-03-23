@@ -50,7 +50,7 @@ def upgrade():
         # PostgreSQL: Create uuidv7 functions
         op.execute(sa.text(r"""
 /* Main function to generate a uuidv7 value with millisecond precision */
-CREATE FUNCTION uuidv7() RETURNS uuid
+CREATE OR REPLACE FUNCTION public.uuidv7() RETURNS uuid
 AS
 $$
     -- Replace the first 48 bits of a uuidv4 with the current
@@ -67,12 +67,12 @@ SELECT encode(
                        53, 1), 'hex')::uuid;
 $$ LANGUAGE SQL VOLATILE PARALLEL SAFE;
 
-COMMENT ON FUNCTION uuidv7 IS
+COMMENT ON FUNCTION public.uuidv7() IS
     'Generate a uuid-v7 value with a 48-bit timestamp (millisecond precision) and 74 bits of randomness';
 """))
 
         op.execute(sa.text(r"""
-CREATE FUNCTION uuidv7_boundary(timestamptz) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.uuidv7_boundary(timestamptz) RETURNS uuid
 AS
 $$
     /* uuid fields: version=0b0111, variant=0b10 */
@@ -83,7 +83,7 @@ SELECT encode(
                'hex')::uuid;
 $$ LANGUAGE SQL STABLE STRICT PARALLEL SAFE;
 
-COMMENT ON FUNCTION uuidv7_boundary(timestamptz) IS
+COMMENT ON FUNCTION public.uuidv7_boundary(timestamptz) IS
     'Generate a non-random uuidv7 with the given timestamp (first 48 bits) and all random bits to 0. As the smallest possible uuidv7 for that timestamp, it may be used as a boundary for partitions.';
 """
 ))
@@ -95,7 +95,7 @@ def downgrade():
     conn = op.get_bind()
     
     if _is_pg(conn):
-        op.execute(sa.text("DROP FUNCTION uuidv7"))
-        op.execute(sa.text("DROP FUNCTION uuidv7_boundary"))
+        op.execute(sa.text("DROP FUNCTION IF EXISTS public.uuidv7()"))
+        op.execute(sa.text("DROP FUNCTION IF EXISTS public.uuidv7_boundary(timestamptz)"))
     else:
         pass
