@@ -1,9 +1,9 @@
 import type { NextRequest } from '@/next/server'
-import { cookies } from '@/next/headers'
-import { NextResponse } from '@/next/server'
 import { Readable } from 'node:stream'
 import { parse as parseSetCookie } from 'set-cookie-parser'
 import { request as undiciRequest } from 'undici'
+import { cookies } from '@/next/headers'
+import { NextResponse } from '@/next/server'
 
 const HOP_BY_HOP = new Set([
   'connection',
@@ -52,14 +52,6 @@ function filterToUndiciHeaders(incoming: Headers): Record<string, string> {
     out[key] = value
   })
   return out
-}
-
-function getSetCookieRaw(headers: Record<string, string | string[] | undefined>): string | string[] | undefined {
-  for (const key of Object.keys(headers)) {
-    if (key.toLowerCase() === 'set-cookie')
-      return headers[key]
-  }
-  return undefined
 }
 
 /** Fetch Headers collapses multiple Set-Cookie into one invalid line; use the cookie store instead. */
@@ -114,9 +106,20 @@ export async function proxyRequestToInternalApi(request: NextRequest): Promise<R
   })
 
   const outHeaders = new Headers()
+  const setCookieHeaders: string[] = []
   for (const [key, value] of Object.entries(headers)) {
-    if (value === undefined || key.toLowerCase() === 'set-cookie')
+    if (value === undefined)
       continue
+    if (key.toLowerCase() === 'set-cookie') {
+      // Collect Set-Cookie headers to apply via Next.js cookie store AND pass to response
+      if (Array.isArray(value)) {
+        setCookieHeaders.push(...value)
+      }
+      else if (typeof value === 'string') {
+        setCookieHeaders.push(value)
+      }
+      continue
+    }
     if (Array.isArray(value)) {
       for (const v of value)
         outHeaders.append(key, v)
@@ -126,7 +129,7 @@ export async function proxyRequestToInternalApi(request: NextRequest): Promise<R
     }
   }
 
-  await applyUpstreamSetCookies(getSetCookieRaw(headers))
+  await applyUpstreamSetCookies(setCookieHeaders.length > 0 ? setCookieHeaders : undefined)
 
   let outBody: BodyInit | null = null
   if (request.method === 'HEAD' || statusCode === 204 || statusCode === 304)
