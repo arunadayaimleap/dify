@@ -72,9 +72,12 @@ export const useWorkflowInit = () => {
       setIsLoading(false)
     }
     catch (error: any) {
+      let handledMissingDraft = false
       if (error && error.json && !error.bodyUsed && appDetail) {
-        error.json().then((err: any) => {
+        try {
+          const err = await error.json()
           if (err.code === 'draft_workflow_not_exist') {
+            handledMissingDraft = true
             const isAdvancedChat = appDetail.mode === AppModeEnum.ADVANCED_CHAT
             workflowStore.setState({
               notInitialWorkflow: true,
@@ -85,27 +88,41 @@ export const useWorkflowInit = () => {
             const nodesData = isAdvancedChat ? nodesTemplate : []
             const edgesData = isAdvancedChat ? edgesTemplate : []
 
-            syncWorkflowDraft({
-              url: `/apps/${appDetail.id}/workflows/draft`,
-              params: {
-                graph: {
-                  nodes: nodesData,
-                  edges: edgesData,
+            try {
+              const res = await syncWorkflowDraft({
+                url: `/apps/${appDetail.id}/workflows/draft`,
+                params: {
+                  graph: {
+                    nodes: nodesData,
+                    edges: edgesData,
+                  },
+                  features: {
+                    retriever_resource: { enabled: true },
+                  },
+                  environment_variables: [],
+                  conversation_variables: [],
                 },
-                features: {
-                  retriever_resource: { enabled: true },
-                },
-                environment_variables: [],
-                conversation_variables: [],
-              },
-            }).then((res) => {
+              })
               workflowStore.getState().setDraftUpdatedAt(res.updated_at)
               setSyncWorkflowDraftHash(res.hash)
-              handleGetInitialWorkflowData()
-            })
+              try {
+                await handleGetInitialWorkflowData()
+              }
+              catch {
+                setIsLoading(false)
+              }
+            }
+            catch {
+              setIsLoading(false)
+            }
           }
-        })
+        }
+        catch {
+          // ignore JSON parse errors
+        }
       }
+      if (!handledMissingDraft)
+        setIsLoading(false)
     }
   }, [appDetail, nodesTemplate, edgesTemplate, workflowStore, setSyncWorkflowDraftHash])
 

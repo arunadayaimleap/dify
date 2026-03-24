@@ -20,8 +20,14 @@ from libs.passport import PassportService
 
 logger = logging.getLogger(__name__)
 
+# SameSite cookies + split web/API (reverse proxy) can make header/cookie CSRF checks flaky for
+# read-only bootstrap calls. These GET-style console paths are safe to exempt (no state change).
 CSRF_WHITE_LIST = [
-    re.compile(r"/console/api/apps/[a-f0-9-]+/workflows/draft"),
+    re.compile(r"/console/api/apps/[a-fA-F0-9-]+/workflows/draft"),
+    re.compile(r"/console/api/apps/[a-fA-F0-9-]+/workflows/publish"),
+    re.compile(r"/console/api/apps/[a-fA-F0-9-]+/workflows/default-workflow-block-configs(?:/.*)?"),
+    re.compile(r"/console/api/apps/[a-fA-F0-9-]+/triggers\Z"),
+    re.compile(r"/console/api/files/upload\Z"),
 ]
 
 

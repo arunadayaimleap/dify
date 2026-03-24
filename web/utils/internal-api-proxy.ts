@@ -1,4 +1,5 @@
 import type { NextRequest } from '@/next/server'
+import { Buffer } from 'node:buffer'
 import { Readable } from 'node:stream'
 import { parse as parseSetCookie } from 'set-cookie-parser'
 import { request as undiciRequest } from 'undici'
@@ -45,13 +46,31 @@ function filterToUndiciHeaders(incoming: Headers): Record<string, string> {
     if (HOP_BY_HOP.has(lk))
       return
     if (lk === 'cookie') {
-      const cur = out[key]
-      out[key] = cur ? `${cur}; ${value}` : value
+      // Always merge into a single lowercase key so undici sends one Cookie header.
+      const cur = out.cookie
+      out.cookie = cur ? `${cur}; ${value}` : value
       return
     }
     out[key] = value
   })
   return out
+}
+
+/** Cookie names issued by api/libs/token.py (not legacy dify_console_*). */
+function readConsoleAccessTokenFromCookies(cookieStore: { get: (name: string) => { value: string } | undefined }): string | undefined {
+  const names = [
+    '__Host-access_token',
+    'access_token',
+    // Legacy / mistaken names kept for compatibility
+    '__Host-dify_console_access_token',
+    'dify_console_access_token',
+  ]
+  for (const name of names) {
+    const v = cookieStore.get(name)?.value
+    if (v)
+      return v
+  }
+  return undefined
 }
 
 /** Fetch Headers collapses multiple Set-Cookie into one invalid line; use the cookie store instead. */
@@ -100,14 +119,12 @@ export async function proxyRequestToInternalApi(request: NextRequest): Promise<R
 
   // Extract access token from cookies and add as Authorization header for internal API
   const cookieStore = await cookies()
-  const accessToken = cookieStore.get('__Host-dify_console_access_token')?.value 
-    || cookieStore.get('dify_console_access_token')?.value
-  
+  const accessToken = readConsoleAccessTokenFromCookies(cookieStore)
+
   const headers = filterToUndiciHeaders(request.headers)
-  // If we have an access token, add it as Authorization header for internal API calls
-  if (accessToken && !headers['authorization']) {
-    headers['authorization'] = `Bearer ${accessToken}`
-  }
+  const hasAuthHeader = Object.keys(headers).some(k => k.toLowerCase() === 'authorization')
+  if (accessToken && !hasAuthHeader)
+    headers.authorization = `Bearer ${accessToken}`
 
   const { statusCode, headers: resHeaders, body: resBody } = await undiciRequest(target, {
     method: request.method,
