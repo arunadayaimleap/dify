@@ -12,23 +12,28 @@
 
 set -e
 
+# Match utils/internal-api-proxy.ts (trim); whitespace-only must not count as set.
+INTERNAL_API_ORIGIN_TRIMMED="$(printf '%s' "${INTERNAL_API_ORIGIN:-}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
 export NEXT_PUBLIC_DEPLOY_ENV=${DEPLOY_ENV}
 export NEXT_PUBLIC_EDITION=${EDITION}
 export NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
-# Same-origin API (proxy.ts + INTERNAL_API_ORIGIN): keep browser on the web host for cookies.
-if [ -n "${INTERNAL_API_ORIGIN}" ]; then
+# Same-origin API (internal-api-proxy + INTERNAL_API_ORIGIN): keep browser on the web host for cookies.
+if [ -n "${INTERNAL_API_ORIGIN_TRIMMED}" ]; then
   export NEXT_PUBLIC_API_PREFIX=/console/api
   export NEXT_PUBLIC_PUBLIC_API_PREFIX=/api
+  export NEXT_PUBLIC_COOKIE_DOMAIN=
+elif case "${NEXT_PUBLIC_API_PREFIX:-}" in /*) true;; *) false;; esac; then
+  # Railway/dashboard may set path-only prefixes; do not overwrite with CONSOLE_API_URL (breaks cookies on split hosts).
+  export NEXT_PUBLIC_PUBLIC_API_PREFIX=${NEXT_PUBLIC_PUBLIC_API_PREFIX:-/api}
   export NEXT_PUBLIC_COOKIE_DOMAIN=
 else
   export NEXT_PUBLIC_API_PREFIX=${CONSOLE_API_URL}/console/api
   export NEXT_PUBLIC_PUBLIC_API_PREFIX=${APP_API_URL}/api
+  export NEXT_PUBLIC_COOKIE_DOMAIN=${NEXT_PUBLIC_COOKIE_DOMAIN}
 fi
 export NEXT_PUBLIC_MARKETPLACE_API_PREFIX=${MARKETPLACE_API_URL}/api/v1
 export NEXT_PUBLIC_MARKETPLACE_URL_PREFIX=${MARKETPLACE_URL}
-if [ -z "${INTERNAL_API_ORIGIN}" ]; then
-  export NEXT_PUBLIC_COOKIE_DOMAIN=${NEXT_PUBLIC_COOKIE_DOMAIN}
-fi
 
 export NEXT_PUBLIC_SENTRY_DSN=${SENTRY_DSN}
 export NEXT_PUBLIC_SITE_ABOUT=${SITE_ABOUT}

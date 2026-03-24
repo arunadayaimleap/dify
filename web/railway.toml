@@ -1,0 +1,4 @@
+# When the Railway service uses GitHub source with **Root directory** = `web`.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"

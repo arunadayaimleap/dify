@@ -1,0 +1,5 @@
+# Used when `railway up` is run from the monorepo root with **dify-web** linked.
+# GitHub deploys should set the service root directory to `web` and use web/Dockerfile instead.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.railway-dify-web"
