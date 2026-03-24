@@ -8,7 +8,7 @@ test('signin data-api-prefix is same-origin safe (split web/API)', async ({ page
   const prefix = await page.locator('body').getAttribute('data-api-prefix')
   expect(prefix, 'body should expose data-api-prefix from server env').toBeTruthy()
 
-  const pageHost = new URL(baseURL).host
+  const pageHost = new URL(baseURL!).host
 
   if (prefix!.startsWith('http')) {
     const apiHost = new URL(prefix!).host

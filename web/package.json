@@ -53,6 +53,7 @@
     "test": "vp test",
     "test:coverage": "vp test --coverage",
     "test:watch": "vp test --watch",
+    "test:e2e:deployment": "playwright test -c playwright.deployment.config.ts",
     "type-check": "tsc --noEmit",
     "type-check:tsgo": "tsgo --noEmit",
     "uglify-embed": "node ./bin/uglify-embed"
@@ -178,6 +179,7 @@
     "@mdx-js/rollup": "3.1.1",
     "@next/eslint-plugin-next": "16.2.1",
     "@next/mdx": "16.2.1",
+    "@playwright/test": "1.52.0",
     "@rgrove/parse-xml": "4.2.0",
     "@storybook/addon-docs": "10.3.1",
     "@storybook/addon-links": "10.3.1",

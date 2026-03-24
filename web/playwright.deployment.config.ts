@@ -12,8 +12,12 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: 'list',
+  timeout: 300_000,
+  expect: { timeout: 20_000 },
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL,
     trace: 'on-first-retry',
+    actionTimeout: 15_000,
+    navigationTimeout: 45_000,
   },
 })
