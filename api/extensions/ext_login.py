@@ -27,6 +27,12 @@ def load_user_from_request(request_from_flask_login):
     if dify_config.SWAGGER_UI_ENABLED and request.path.endswith((dify_config.SWAGGER_UI_PATH, "/swagger.json")):
         return None
 
+    # Skip authentication for public auth endpoints
+    if request.path.startswith(("/console/api/login", "/console/api/logout", "/console/api/setup", 
+                                "/console/api/system-features", "/console/api/email", 
+                                "/console/api/email-code-login", "/console/api/register", "/console/api/oauth")):
+        return None
+
     auth_token = extract_access_token(request)
 
     # Check for admin API key authentication first
