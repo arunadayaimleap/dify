@@ -1,0 +1,4 @@
+# Used when `railway up` is run from the api directory.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
