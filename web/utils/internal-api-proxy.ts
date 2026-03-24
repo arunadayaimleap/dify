@@ -98,16 +98,26 @@ export async function proxyRequestToInternalApi(request: NextRequest): Promise<R
   if (request.method !== 'GET' && request.method !== 'HEAD')
     reqBody = Buffer.from(await request.arrayBuffer())
 
-  const { statusCode, headers, body: resBody } = await undiciRequest(target, {
+  // Extract access token from cookies and add as Authorization header for internal API
+  const cookieStore = await cookies()
+  const accessToken = cookieStore.get('__Host-dify_console_access_token')?.value 
+    || cookieStore.get('dify_console_access_token')?.value
+  
+  const headers = filterToUndiciHeaders(request.headers)
+  // If we have an access token, add it as Authorization header for internal API calls
+  if (accessToken && !headers['authorization']) {
+    headers['authorization'] = `Bearer ${accessToken}`
+  }
+
+  const { statusCode, headers: resHeaders, body: resBody } = await undiciRequest(target, {
     method: request.method,
-    headers: filterToUndiciHeaders(request.headers),
+    headers,
     body: reqBody?.length ? reqBody : undefined,
-    maxRedirections: 0,
-  })
+  } as Parameters<typeof undiciRequest>[1])
 
   const outHeaders = new Headers()
   const setCookieHeaders: string[] = []
-  for (const [key, value] of Object.entries(headers)) {
+  for (const [key, value] of Object.entries(resHeaders)) {
     if (value === undefined)
       continue
     if (key.toLowerCase() === 'set-cookie') {
@@ -132,10 +142,12 @@ export async function proxyRequestToInternalApi(request: NextRequest): Promise<R
   await applyUpstreamSetCookies(setCookieHeaders.length > 0 ? setCookieHeaders : undefined)
 
   let outBody: BodyInit | null = null
-  if (request.method === 'HEAD' || statusCode === 204 || statusCode === 304)
+  if (request.method === 'HEAD' || statusCode === 204 || statusCode === 304) {
     await resBody.dump({ limit: 0 })
-  else
-    outBody = Readable.toWeb(resBody)
+  }
+  else {
+    outBody = Readable.toWeb(resBody) as unknown as BodyInit
+  }
 
   return new NextResponse(outBody, {
     status: statusCode,
