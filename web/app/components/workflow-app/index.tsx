@@ -6,7 +6,9 @@ import {
   useEffect,
   useMemo,
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useStore as useAppStore } from '@/app/components/app/store'
+import Button from '@/app/components/base/button'
 import { FeaturesProvider } from '@/app/components/base/features'
 import Loading from '@/app/components/base/loading'
 import { FILE_EXTS } from '@/app/components/base/prompt-editor/constants'
@@ -37,9 +39,11 @@ import {
 import { createWorkflowSlice } from './store/workflow/workflow-slice'
 
 const WorkflowAppWithAdditionalContext = () => {
+  const { t } = useTranslation()
   const {
     data,
     isLoading,
+    draftLoadFailed,
     fileUploadConfigResponse,
   } = useWorkflowInit()
   const workflowStore = useWorkflowStore()
@@ -158,6 +162,22 @@ const WorkflowAppWithAdditionalContext = () => {
       setShowDebugAndPreviewPanel(true)
     })
   }, [replayRunId, workflowStore, getWorkflowRunAndTraceUrl])
+
+  if (draftLoadFailed) {
+    return (
+      <div className="relative flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="max-w-md text-text-secondary system-md-regular">
+          {t('editor.loadDraftFailed', { ns: 'workflow' })}
+        </p>
+        <Button
+          variant="primary"
+          onClick={() => globalThis.location.reload()}
+        >
+          {t('operation.reload', { ns: 'common' })}
+        </Button>
+      </div>
+    )
+  }
 
   if (!data || isLoading || isLoadingCurrentWorkspace || !currentWorkspace.id) {
     return (

@@ -42,6 +42,7 @@ export const useWorkflowInit = () => {
   const setSyncWorkflowDraftHash = useStore(s => s.setSyncWorkflowDraftHash)
   const [data, setData] = useState<FetchWorkflowDraftResponse>()
   const [isLoading, setIsLoading] = useState(true)
+  const [draftLoadFailed, setDraftLoadFailed] = useState(false)
   useEffect(() => {
     workflowStore.setState({ appId: appDetail.id, appName: appDetail.name })
   }, [appDetail.id, workflowStore])
@@ -57,6 +58,7 @@ export const useWorkflowInit = () => {
 
   const handleGetInitialWorkflowData = useCallback(async () => {
     try {
+      setDraftLoadFailed(false)
       const res = await fetchWorkflowDraft(`/apps/${appDetail.id}/workflows/draft`)
       setData(res)
       workflowStore.setState({
@@ -110,10 +112,12 @@ export const useWorkflowInit = () => {
               }
               catch {
                 setIsLoading(false)
+                setDraftLoadFailed(true)
               }
             }
             catch {
               setIsLoading(false)
+              setDraftLoadFailed(true)
             }
           }
         }
@@ -121,8 +125,10 @@ export const useWorkflowInit = () => {
           // ignore JSON parse errors
         }
       }
-      if (!handledMissingDraft)
+      if (!handledMissingDraft) {
         setIsLoading(false)
+        setDraftLoadFailed(true)
+      }
     }
   }, [appDetail, nodesTemplate, edgesTemplate, workflowStore, setSyncWorkflowDraftHash])
 
@@ -167,6 +173,7 @@ export const useWorkflowInit = () => {
   return {
     data,
     isLoading: isLoading || isFileUploadConfigLoading,
+    draftLoadFailed,
     fileUploadConfigResponse,
   }
 }

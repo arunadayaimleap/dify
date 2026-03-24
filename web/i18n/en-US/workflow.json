@@ -1161,5 +1161,6 @@
   "versionHistory.nameThisVersion": "Name this version",
   "versionHistory.releaseNotesPlaceholder": "Describe what changed",
   "versionHistory.restorationTip": "After version restoration, the current draft will be overwritten.",
-  "versionHistory.title": "Versions"
+  "versionHistory.title": "Versions",
+  "editor.loadDraftFailed": "We could not load this workflow draft. Check your network, refresh the page, or restore a published version from version history. If the problem persists, re-importing the app may help."
 }
