@@ -51,6 +51,9 @@ ENV MARKETPLACE_URL=https://marketplace.dify.ai
 ENV PORT=3000
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Internal API proxy for same-origin routing. Overridden by entrypoint at runtime if Railway env is set.
+ENV INTERNAL_API_ORIGIN=http://localhost:5001
+
 # set timezone
 ENV TZ=UTC
 RUN ln -s /usr/share/zoneinfo/${TZ} /etc/localtime \
